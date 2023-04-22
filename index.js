@@ -1,23 +1,19 @@
-// ==================== INITIALIZE EXPRESS APP ====================
 const express = require("express");
 const app = express();
 
-// ====================  GLOBAL MIDDLEWARE ====================
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // TO ACCESS URL FORM ENCODED
-app.use(express.static("upload"));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('upload'));
+
 const cors = require("cors");
-app.use(cors()); // ALLOW HTTP REQUESTS LOCAL HOSTS
+app.use(cors());
 
-// ====================  Required Module ====================
 const auth = require("./routes/Auth");
-const movies = require("./routes/Movies");
+const book = require("./routes/book");
 
-// ====================  RUN THE APP  ====================
-app.listen(4000, "localhost", () => {
-  console.log("SERVER IS RUNNING ");
-});
+app.listen(3000, "localhost", () => {
+    console.log("server is runing");
+})
 
-// ====================  API ROUTES [ ENDPOINTS ]  ====================
 app.use("/auth", auth);
-app.use("/movies", movies);
+app.use("/book", book);
