@@ -9,7 +9,7 @@ const fs = require("fs");
 const bcrupt = require("bcrypt");
 const crypto = require("crypto");
 
-
+//------------------------------------Manage Books---------------------------------
 //Admin 
 //create book
 router.post("/create", admin,
@@ -17,6 +17,7 @@ router.post("/create", admin,
     body("name").isString().withMessage("please enter book name"),
     body("description").isString().withMessage("please enter book description"),
     body("author").isString().withMessage("please enter book author"),
+    body("field").isString().withMessage("please enter book field"),
     async (req, res) => {
         try {
             //1- valdation req
@@ -29,7 +30,7 @@ router.post("/create", admin,
                 return res.status(400).json({
                     error: [
                         {
-                            msg: "image is requiered",
+                            msg: "image or pdf is requiered",
                         },
                     ],
                 });
@@ -41,11 +42,11 @@ router.post("/create", admin,
                 description: req.body.description,
                 image_url: req.file.filename,
                 author: req.body.author,
-                publicationDate: date
+                publication_date: date
             }
             //4-save book in db
             const query = util.promisify(conn.query).bind(conn);
-            await query("insert into book set ?", book);
+            await query("insert into books set ?", book);
 
             res.status(200).json({
                 msg: "book created successfully"
@@ -62,6 +63,7 @@ router.put("/update/:id", admin,
     body("name").isString().withMessage("please enter book name"),
     body("description").isString().withMessage("please enter book description"),
     body("author").isString().withMessage("please enter book author"),
+    body("field").isString().withMessage("please enter book field"),
     async (req, res) => {
         try {
             //1- valdation req
@@ -72,7 +74,7 @@ router.put("/update/:id", admin,
             }
 
             //2- check book
-            const Book = await query("select * from book where id = ?", [req.params.id])
+            const Book = await query("select * from books where id = ?", [req.params.id])
             if (!Book[0]) {
                 res.status(403).json({ msg: "book not found!" });
             }
@@ -81,7 +83,8 @@ router.put("/update/:id", admin,
             const BookObj = {
                 name: req.body.name,
                 description: req.body.description,
-                author: req.body.author
+                author: req.body.author,
+                field: req.body.field,
             }
             if (req.file) {
                 BookObj.image_url = req.file.filename;
@@ -90,7 +93,7 @@ router.put("/update/:id", admin,
             }
             //4- update book
 
-            await query("update book set ? where id = ?", [BookObj, Book[0].id]);
+            await query("update books set ? where id = ?", [BookObj, Book[0].id]);
 
             res.status(200).json({
                 msg: "book updated successfully"
@@ -101,20 +104,22 @@ router.put("/update/:id", admin,
             res.status(500).json(err);
         }
     });
+
+
 //delete book
 router.delete("/delete/:id", admin,
     async (req, res) => {
         try {
             //1- check book
             const query = util.promisify(conn.query).bind(conn);
-            const Book = await query("select * from book where id = ?", [req.params.id]);
+            const Book = await query("select * from books where id = ?", [req.params.id]);
             if (!Book[0]) {
                 res.status(403).json({ msg: "book not found!" });
             }
             // 2- remove book
 
             fs.unlinkSync("./upload/" + Book[0].image_url);
-            await query("delete from book where id = ?", [Book[0].id]);
+            await query("delete from books where id = ?", [Book[0].id]);
 
             res.status(200).json({
                 msg: "book deleted successfully"
@@ -127,36 +132,38 @@ router.delete("/delete/:id", admin,
         }
     });
 
-//user[view(search) - filter]
 
+//user[view(search) - filter]
 router.get("/view", async (req, res) => {
     const query = util.promisify(conn.query).bind(conn);
     let search = "";
     if (req.query.search) {
         search = `where name like '%${req.query.search}%'`;
     }
-    const books = await query(`select * from book ${search}`);
+    const books = await query(`select * from books ${search}`);
 
     books.map((book) => {
-        book.image_url = "http://" + req.hostname + "3000/" + book.image_url;
+        book.image_url = "http://" + req.hostname + ":3000/" + book.image_url;
     })
     res.status(200).json(books);
 });
-//show 
+
+
+//show admin
 router.get("/show/:id", async (req, res) => {
     const query = util.promisify(conn.query).bind(conn);
-    const Book = await query("select * from book where id = ?", [req.params.id]);
+    const Book = await query("select * from books where id = ?", [req.params.id]);
     if (!Book[0]) {
         res.status(403).json({ msg: "book not found!" });
     }
 
-    Book[0].image_url = "http://" + req.hostname + "3000/" + Book[0].image_url;
+    Book[0].image_url = "http://" + req.hostname + ":3000/" + Book[0].image_url;
     res.status(200).json(Book[0]);
 });
 
-//manage chapters
+//------------------------------------Manage Chapters--------------------------------
 //create chapter
-router.post("/create_chapters", admin,
+router.post("/create_chapter", admin,authorized,
     body("title").isString().withMessage("please enter chapter title"),
     body("description").isString().withMessage("please enter chapter description"),
     body("book_id").isString().withMessage("please enter book id"),
@@ -168,10 +175,12 @@ router.post("/create_chapters", admin,
                 return res.status(400).json({ error: error.array() });
             }
 
+
             // 3- object of book 
             const chapter = {
                 title: req.body.title,
                 description: req.body.description,
+                book_name: res.locals.book.name,
                 book_id: req.body.book_id
             }
             //4-save book in db
@@ -183,9 +192,13 @@ router.post("/create_chapters", admin,
             });
         } catch (err) {
             console.log(err);
-            res.status(500).json(err);
+            res.status(500).json({
+                msg:"book not found",
+            });
         }
     });
+
+
 
 //update chapter
 router.put("/updateChapter/:id", admin,
@@ -199,11 +212,13 @@ router.put("/updateChapter/:id", admin,
             if (!error.isEmpty()) {
                 return res.status(400).json({ error: error.array() });
             }
-            //2- check book
+
+            //2- check chapter
             const chapter = await query("select * from bookchapters where id = ?", [req.params.id])
             if (!chapter[0]) {
-                res.status(403).json({ msg: "chapter not found!" });
+              return  res.status(403).json({ msg: "chapter not found!" });
             }
+
             //3- object chapter
             const chapterobj = {
                 title: req.body.title,
@@ -228,7 +243,7 @@ router.delete("/deleteChapter/:id", admin,
             const query = util.promisify(conn.query).bind(conn);
             const chapter = await query("select * from bookchapters where id = ?", [req.params.id]);
             if (!chapter[0]) {
-                res.status(403).json({ msg: "chapter not found!" });
+               return res.status(403).json({ msg: "chapter not found!" });
             }
             // 2- remove chapter
 
@@ -244,12 +259,12 @@ router.delete("/deleteChapter/:id", admin,
         }
     });
 
-//show chapter
+// //show chapter admin
 router.get("/showChapter/:title", admin, async (req, res) => {
     const query = util.promisify(conn.query).bind(conn);
     const chapter = await query("select * from bookchapters where title = ?", [req.params.title]);
     if (!chapter[0]) {
-        res.status(403).json({ msg: "chapter not found!" });
+       return res.status(403).json({ msg: "chapter not found!" });
     }
 
     res.status(200).json(chapter);
@@ -261,7 +276,7 @@ router.get("/showBookChapter/:book_id", authorized, async (req, res) => {
 
     const chapter = await query("select * from bookchapters where book_id = ?", [req.params.book_id]);
     if (!chapter[0]) {
-        res.status(403).json({ msg: "chapter not found!" });
+      return  res.status(403).json({ msg: "chapter not found!" });
     }
 
     res.status(200).json(chapter);
@@ -287,7 +302,7 @@ router.get("/showHistory", admin, async (req, res) => {
 
 router.get("/showMyHistory", authorized, async (req, res) => {
     try {
-        const query = util.promisify(conn.query).bind(conn);
+        const query = util.promisify(conn.query).bind(conn);  
 
         const result = await query(`select * from query where user_name = ?`, res.locals.user.id);
         if (!result[0]) {
@@ -557,4 +572,43 @@ router.get("/show_users/:id", admin, async (req, res) => {
 
 });
 
+
+//type(user or admin)
+
+router.patch("/type/:id", admin , async (req, res) => {
+    try {
+        const query = util.promisify(conn.query).bind(conn);
+        await query('update users set type = 1 where id = ?', [req.params.id]);
+        res.status(200).json({
+            msg:"welcome ya 3am",
+        });
+    } catch (err) {
+        res.status(500).json(err);
+    }
+});
+
+//STATUS (ACTIVE OR IN-ACTIVE)
+
+router.patch("/status-active/:id", admin , async (req, res) => {
+    try {
+        const query = util.promisify(conn.query).bind(conn);
+        await query('update users set status = 1 where id = ?', [req.params.id]);
+        res.status(200).json({
+            msg:"Active User",
+        });
+    } catch (err) {
+        res.status(500).json(err);
+    }
+});
+router.patch("/status-in_active/:id", admin , async (req, res) => {
+    try {
+        const query = util.promisify(conn.query).bind(conn);
+        await query('update users set status = 0 where id = ?', [req.params.id]);
+        res.status(200).json({
+            msg:"In_active User",
+        });
+    } catch (err) {
+        res.status(500).json(err);
+    }
+}); 
 module.exports = router;
