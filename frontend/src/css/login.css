@@ -1,0 +1,13 @@
+.login-container{
+    width: 30%;
+    padding-top: 60px;
+    margin: auto;
+    
+}
+
+.image-login{
+    background-image: url('https://images.pexels.com/photos/450066/pexels-photo-450066.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1');
+     height: 650px;  
+    /* width: 100%;   */
+  
+}

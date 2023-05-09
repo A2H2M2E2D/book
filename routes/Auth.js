@@ -105,3 +105,8 @@ router.post("/register", body("email").isEmail().withMessage("please enter a val
         }
     })
 module.exports = router;
+
+
+
+
+

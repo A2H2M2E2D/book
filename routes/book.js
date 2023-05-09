@@ -1,3 +1,4 @@
+
 const router = require("express").Router();
 const conn = require("../db/dbConnection");
 const authorized = require("../middleware/authorize");
@@ -298,8 +299,9 @@ router.get("/showHistory", admin, async (req, res) => {
         res.status(500).json(err);
     }
 })
-//show user history
 
+
+//show user history
 router.get("/showMyHistory", authorized, async (req, res) => {
     try {
         const query = util.promisify(conn.query).bind(conn);  
@@ -319,6 +321,19 @@ router.get("/showMyHistory", authorized, async (req, res) => {
     }
 })
 
+//show requests for admin`s page
+router.get("/showReq", async (req, res) => {
+    try{ 
+        const query = util.promisify(conn.query).bind(conn);
+        const shows = await query("select id , user_name , book_name from query");
+        res.status(200).json(shows);
+
+    }catch (err) {
+            console.log(err);
+            res.status(500).json(err);
+        }   
+});
+
 
 // Send a request to the admin with the required book 
 router.post("/order", authorized, body("book_name").isString().withMessage("please enter right book name"),
@@ -333,7 +348,7 @@ router.post("/order", authorized, body("book_name").isString().withMessage("plea
 
             // 3- PREPARE MOVIE OBJECT
             const book = {
-                user_name: res.locals.user.id,
+                user_name: res.locals.user.name,
                 book_name: req.body.book_name
             };
 
@@ -349,6 +364,8 @@ router.post("/order", authorized, body("book_name").isString().withMessage("plea
         }
     }
 );
+
+
 //Accept or decline requests by the reader
 // accepts
 router.patch("/accept/:id", admin, async (req, res) => {
@@ -361,12 +378,20 @@ router.patch("/accept/:id", admin, async (req, res) => {
         }
         else {
             res.status(200).json({ msg: "accepted" });
+            delete req.params.id;
+
         }
-    } catch (err) {
+
+       // Delete the request data
+ // delete req.body;
+  //delete req.query;
+
+     }catch (err) {
         console.log(err);
         res.status(500).json(err);
     }
-});
+    });
+
 
 // decline
 router.patch("/decline/:id", admin, async (req, res) => {
@@ -559,8 +584,7 @@ router.delete("/delete_user/:id",//PARAMS
 //SHOW user [ADMIN]
 router.get("/show_users/:id", admin, async (req, res) => {
     const query = util.promisify(conn.query).bind(conn);
-    const user = await query("select * from users where id = ?"
-        , [req.params.id]);
+    const user = await query("select * from users where id = ?", [req.params.id]);
     if (!user[0]) {
         res.status(404).json({
             msg: "user not found",
@@ -612,3 +636,5 @@ router.patch("/status-in_active/:id", admin , async (req, res) => {
     }
 }); 
 module.exports = router;
+
+
